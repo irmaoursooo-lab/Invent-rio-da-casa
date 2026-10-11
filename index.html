@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Inventário Apple - Casa</title>
+  
+  <!-- Configurações PWA e Apple iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Inventário">
+  <meta name="theme-color" content="#0071e3">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="./icons/icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon.png">
+  <link rel="icon" type="image/png" href="./icon.png">
+  <link rel="shortcut icon" href="./icon.png">
+
+  <!-- Tailwind CSS via CDN com suporte a modo escuro por classe -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            apple: {
+              blue: '#0071e3',
+              'blue-hover': '#0077ed',
+              dark: '#1d1d1f',
+              gray: '#86868b',
+              light: '#f5f5f7',
+              green: '#34c759',
+              orange: '#ff9500',
+              red: '#ff3b30'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Estilos e Animações Apple -->
+  <link rel="stylesheet" href="./css/apple-theme.css">
+</head>
+<body class="pb-24 sm:pb-12 min-h-screen">
+
+  <!-- Container de Toasts / Notificações Flutuantes -->
+  <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-11/12 max-w-md"></div>
+
+  <!-- Barra de Navegação Superior Translúcida (Estilo Apple.com) -->
+  <header class="sticky top-0 z-30 apple-glass transition-colors">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      
+      <!-- Logo e Título com Ícone Apple Squircle -->
+      <div class="flex items-center gap-2.5">
+        <img src="./icons/icon.png" alt="Logo" class="w-8 h-8 rounded-xl object-cover shadow-sm border border-black/10 dark:border-white/10">
+        <div class="flex flex-col">
+          <h1 class="text-sm font-semibold tracking-tight text-neutral-900 dark:text-white">Inventário</h1>
+          <span class="text-[10px] text-neutral-400 -mt-0.5">Casa &amp; Despensa</span>
+        </div>
+        <div id="network-status-badge" class="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5"></div>
+      </div>
+
+      <!-- Abas de Navegação no Desktop / iPad -->
+      <nav class="hidden sm:flex items-center gap-1">
+        <button data-tab-target="inventario" class="px-3.5 py-1.5 rounded-full text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+          Inventário
+        </button>
+        <button data-tab-target="compras" class="relative px-3.5 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+          Lista de Compras
+          <span id="badge-shopping-count" class="hidden ml-1 px-1.5 py-0.2 bg-red-500 text-white rounded-full text-[10px] font-bold"></span>
+        </button>
+        <button data-tab-target="ajustes" class="px-3.5 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+          Ajustes
+        </button>
+      </nav>
+
+      <!-- Botões de Ação Rápida -->
+      <div class="flex items-center gap-2">
+        <button id="btn-open-scanner" class="apple-btn-primary text-xs py-1.5 px-3.5 shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="hidden sm:inline">Escanear Foto / Nota</span>
+          <span class="sm:hidden">Escanear</span>
+        </button>
+
+        <button id="btn-new-item" class="apple-btn-secondary text-xs py-1.5 px-3">
+          + Novo Item
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="max-w-5xl mx-auto px-4 pt-6">
+
+    <!-- SEÇÃO 1: INVENTÁRIO -->
+    <section id="section-inventory">
+      
+      <!-- Indicadores de Resumo (Estilo Apple Dashboard) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="apple-glass-card rounded-2xl p-3.5">
+          <div class="text-xs font-medium text-neutral-500">Total de Itens</div>
+          <div id="count-total" class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white mt-0.5">0</div>
+        </div>
+        <div class="apple-glass-card rounded-2xl p-3.5 border-l-4 border-l-green-500">
+          <div class="text-xs font-medium text-neutral-500">Em Estoque (Ok)</div>
+          <div id="count-ok" class="text-2xl font-bold tracking-tight text-green-600 mt-0.5">0</div>
+        </div>
+        <div class="apple-glass-card rounded-2xl p-3.5 border-l-4 border-l-amber-500">
+          <div class="text-xs font-medium text-neutral-500">Estoque Baixo</div>
+          <div id="count-baixo" class="text-2xl font-bold tracking-tight text-amber-500 mt-0.5">0</div>
+        </div>
+        <div class="apple-glass-card rounded-2xl p-3.5 border-l-4 border-l-red-500">
+          <div class="text-xs font-medium text-neutral-500">Em Falta</div>
+          <div id="count-falta" class="text-2xl font-bold tracking-tight text-red-500 mt-0.5">0</div>
+        </div>
+      </div>
+
+      <!-- Barra de Busca Spotlight Apple -->
+      <div class="relative mb-5">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <input type="text" id="search-input" placeholder="Buscar produtos por nome ou categoria..." class="apple-input pl-10 pr-4 py-2.5 text-sm rounded-xl">
+      </div>
+
+      <!-- Filtros Segmentados Apple (Categorias e Status) -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        
+        <!-- Categorias: Alimento, Limpeza, Higiene -->
+        <div class="overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <div class="apple-segmented-container">
+            <button data-filter-category="todos" class="apple-segmented-btn active">Todos</button>
+            <button data-filter-category="alimento" class="apple-segmented-btn">🍎 Alimento</button>
+            <button data-filter-category="limpeza" class="apple-segmented-btn">✨ Limpeza</button>
+            <button data-filter-category="higiene" class="apple-segmented-btn">🧴 Higiene</button>
+          </div>
+        </div>
+
+        <!-- Status: Ok, Baixo, Em Falta -->
+        <div class="overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <div class="apple-segmented-container">
+            <button data-filter-status="todos" class="apple-segmented-btn active">Todos Status</button>
+            <button data-filter-status="ok" class="apple-segmented-btn">● Ok</button>
+            <button data-filter-status="baixo" class="apple-segmented-btn">● Baixo</button>
+            <button data-filter-status="em_falta" class="apple-segmented-btn">● Em falta</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Grid de Itens do Inventário -->
+      <div id="inventory-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+    </section>
+
+    <!-- SEÇÃO 2: LISTA DE COMPRAS -->
+    <section id="section-shopping" class="hidden">
+      <div id="shopping-list-container" class="max-w-2xl mx-auto">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+    </section>
+
+    <!-- SEÇÃO 3: AJUSTES / CONFIGURAÇÕES -->
+    <section id="section-settings" class="hidden max-w-2xl mx-auto">
+      <div class="apple-glass-card rounded-3xl p-6 mb-6">
+        <h2 class="text-xl font-bold text-neutral-900 dark:text-white mb-2">Ajustes &amp; Inteligência Artificial</h2>
+        <p class="text-sm text-neutral-500 mb-6">Configure sua chave de IA Gemini para leitura inteligente de fotos e notas fiscais, ou exporte cópias de segurança.</p>
+
+        <!-- Chave de API Google Gemini -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1.5">
+              Chave de API do Google Gemini (Gratuita)
+            </label>
+            <div class="flex gap-2">
+              <input type="password" id="settings-gemini-key" placeholder="AIzaSy..." class="apple-input flex-1 text-sm font-mono">
+              <button id="btn-save-gemini-key" class="apple-btn-primary text-xs py-2 px-4">Salvar</button>
+            </div>
+            <p class="text-xs text-neutral-400 mt-2">
+              A chave fica gravada apenas no seu dispositivo local. Você pode obter uma chave gratuita no <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-500 hover:underline">Google AI Studio</a>.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1.5">
+              Modelo Gemini
+            </label>
+            <select id="settings-gemini-model" class="apple-input text-xs">
+              <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Mais Recente &amp; Raciocínio Híbrido - Recomendado)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Alta Velocidade)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Estável)</option>
+            </select>
+            <p class="text-[11px] text-neutral-400 mt-1">
+              Como você possui assinatura paga, o Gemini 2.5 Flash oferece o melhor entendimento de embalagens e notas fiscais.
+            </p>
+          </div>
+
+          <button id="btn-test-gemini-key" class="apple-btn-secondary text-xs py-2 px-4 w-full sm:w-auto">
+            Testar Conexão com Gemini
+          </button>
+        </div>
+
+        <hr class="my-6 border-black/5 dark:border-white/5">
+
+        <!-- Aparência (Modo Claro / Escuro) -->
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm font-semibold text-neutral-900 dark:text-white">Aparência Visual</div>
+            <div class="text-xs text-neutral-500">Alternar entre tema Claro e Escuro</div>
+          </div>
+          <button id="btn-toggle-theme" class="apple-btn-secondary text-xs py-2 px-4">
+            <span id="theme-label">Modo Escuro</span>
+          </button>
+        </div>
+
+        <hr class="my-6 border-black/5 dark:border-white/5">
+
+        <!-- Atualização do App & Limpeza de Cache -->
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm font-semibold text-neutral-900 dark:text-white">Atualização do App</div>
+            <div class="text-xs text-neutral-500">Versão 5.0 (Histórico de Preços e Clique Longo)</div>
+          </div>
+          <button id="btn-force-refresh" class="apple-btn-secondary text-xs py-2 px-4 text-blue-600 dark:text-blue-400">
+            🔄 Forçar Atualização
+          </button>
+        </div>
+
+        <hr class="my-6 border-black/5 dark:border-white/5">
+
+        <!-- Backup e Exportação -->
+        <div>
+          <div class="text-sm font-semibold text-neutral-900 dark:text-white mb-1">Cópia de Segurança (Backup)</div>
+          <div class="text-xs text-neutral-500 mb-3">Exporte seus dados em JSON para transferir entre dispositivos ou guardar um backup.</div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-export-backup" class="apple-btn-secondary text-xs py-2 px-4">
+              Exportar Inventário (.json)
+            </button>
+            <label class="apple-btn-secondary text-xs py-2 px-4 cursor-pointer">
+              <span>Restaurar Backup</span>
+              <input type="file" id="file-import-backup" accept=".json" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <hr class="my-6 border-black/5 dark:border-white/5">
+
+        <!-- Gerenciamento de Estoque -->
+        <div>
+          <div class="text-sm font-semibold text-neutral-900 dark:text-white mb-1">Limpeza de Estoque</div>
+          <div class="text-xs text-neutral-500 mb-3">Deseja começar do zero? Remova todos os produtos cadastrados de uma vez.</div>
+          <button id="btn-clear-all-items" class="apple-btn-secondary text-xs py-2 px-4 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30">
+            🗑️ Limpar Todos os Produtos do Inventário
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Barra de Navegação Inferior (Mobile iOS Tab Bar) -->
+  <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 apple-glass border-t border-black/10 dark:border-white/10 pb-safe">
+    <div class="grid grid-cols-3 h-16">
+      <button data-tab-target="inventario" class="flex flex-col items-center justify-center gap-1 text-blue-600 dark:text-blue-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+        <span class="text-[11px] font-medium">Inventário</span>
+      </button>
+
+      <button data-tab-target="compras" class="relative flex flex-col items-center justify-center gap-1 text-neutral-500">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+        <span class="text-[11px] font-medium">Compras</span>
+      </button>
+
+      <button data-tab-target="ajustes" class="flex flex-col items-center justify-center gap-1 text-neutral-500">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span class="text-[11px] font-medium">Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MODAL 1: SCANNER & CÂMERA DE FOTOS -->
+  <div id="modal-scanner" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 apple-sheet-backdrop">
+    <div class="apple-sheet-content w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-5 max-h-[90vh] overflow-y-auto">
+      
+      <div class="sm:hidden apple-sheet-grabber"></div>
+
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-neutral-900 dark:text-white">Escanear com IA</h3>
+          <p id="scanner-mode-description" class="text-xs text-neutral-500 mt-0.5">Tire uma foto do produto ou da nota fiscal</p>
+        </div>
+        <button data-close-modal="modal-scanner" class="p-1.5 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-white">
+          ✕
+        </button>
+      </div>
+
+      <!-- Alternador de Modo: Produto vs Nota Fiscal -->
+      <div class="flex justify-center mb-5">
+        <div class="apple-segmented-container w-full justify-center">
+          <button data-scan-mode="produto" class="apple-segmented-btn active flex-1">
+            📦 Foto do Produto
+          </button>
+          <button data-scan-mode="nota" class="apple-segmented-btn flex-1">
+            🧾 Foto da Nota Fiscal
+          </button>
+        </div>
+      </div>
+
+      <!-- Input Oculto de Câmera / Arquivo (Dispara Câmera no iPhone/iPad) -->
+      <input type="file" id="camera-file-input" accept="image/*" capture="environment" class="hidden">
+
+      <!-- Área de Captura de Foto -->
+      <div id="scanner-upload-area" class="border-2 border-dashed border-black/15 dark:border-white/15 rounded-2xl p-8 text-center cursor-pointer hover:border-blue-500 transition-colors bg-black/[0.01] dark:bg-white/[0.01]">
+        <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </div>
+        <p class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Toque para Abrir a Câmera ou Galeria</p>
+        <p class="text-xs text-neutral-400 mt-1">Compatível com iPhone, iPad e Computador</p>
+      </div>
+
+      <!-- Preview da Imagem Capturada -->
+      <div id="scanner-preview-container" class="hidden space-y-3">
+        <div class="relative rounded-2xl overflow-hidden bg-black/10 max-h-60 flex items-center justify-center">
+          <img id="scanner-preview-img" src="" alt="Preview da Foto" class="max-h-60 w-auto object-contain">
+        </div>
+        <div class="flex justify-end">
+          <button id="btn-retake-photo" class="apple-btn-secondary text-xs py-1.5 px-3">
+            Tirar Outra Foto
+          </button>
+        </div>
+      </div>
+
+      <!-- Caixa de Processamento / Scanner com IA -->
+      <div id="scanner-analyzing-box" class="hidden mt-4 p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-center space-y-2">
+        <div class="inline-block animate-spin rounded-full h-7 w-7 border-3 border-blue-600 border-t-transparent"></div>
+        <div class="text-sm font-semibold text-blue-900 dark:text-blue-100">Analisando imagem com IA Gemini...</div>
+        <div class="text-xs text-blue-600 dark:text-blue-300">Identificando produtos, categorias e quantidades</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 2: FOLHA DE CONFERÊNCIA EM LOTE DA NOTA FISCAL -->
+  <div id="modal-receipt-review" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 apple-sheet-backdrop">
+    <div class="apple-sheet-content w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl p-5 max-h-[90vh] flex flex-col">
+      
+      <div class="sm:hidden apple-sheet-grabber"></div>
+
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h3 class="text-lg font-bold text-neutral-900 dark:text-white">Conferência da Nota Fiscal</h3>
+          <p class="text-xs text-neutral-500">Revise os produtos identificados antes de adicionar ao estoque</p>
+        </div>
+        <button data-close-modal="modal-receipt-review" class="p-1.5 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-white">
+          ✕
+        </button>
+      </div>
+
+      <!-- Lista de Itens Detectados -->
+      <div id="receipt-review-list" class="flex-1 overflow-y-auto space-y-2.5 my-3 pr-1 max-h-[55vh]">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Ações da Folha de Conferência -->
+      <div class="pt-3 border-t border-black/5 dark:border-white/5 flex gap-2">
+        <button data-close-modal="modal-receipt-review" class="apple-btn-secondary text-xs flex-1 py-2.5">
+          Cancelar
+        </button>
+        <button id="btn-confirm-receipt-import" class="apple-btn-primary text-xs flex-1 py-2.5">
+          Confirmar e Salvar no Estoque
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 3: CADASTRO / EDIÇÃO MANUAL DE PRODUTO -->
+  <div id="modal-item" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 apple-sheet-backdrop">
+    <div class="apple-sheet-content w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 max-h-[90vh] overflow-y-auto">
+      
+      <div class="sm:hidden apple-sheet-grabber"></div>
+
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="modal-item-title" class="text-lg font-bold text-neutral-900 dark:text-white">Novo Produto</h3>
+        <button data-close-modal="modal-item" class="p-1.5 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-white">
+          ✕
+        </button>
+      </div>
+
+      <form id="form-item" class="space-y-4">
+        
+        <!-- Nome do Produto -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Nome do Produto</label>
+          <input type="text" id="item-name" required placeholder="Ex: Arroz Branco Tipo 1 5kg" class="apple-input">
+        </div>
+
+        <!-- Categoria Selecionável -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Tipo de Produto</label>
+          <select id="item-category" class="apple-input">
+            <option value="alimento">🍎 Alimento</option>
+            <option value="limpeza">✨ Limpeza</option>
+            <option value="higiene">🧴 Higiene</option>
+          </select>
+        </div>
+
+        <!-- Quantidade e Unidade -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Quantidade</label>
+            <input type="number" step="any" min="0" id="item-quantity" value="1" required class="apple-input text-base font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Unidade</label>
+            <select id="item-unit" class="apple-input">
+              <option value="un">un (unidade)</option>
+              <option value="kg">kg (quilos)</option>
+              <option value="g">g (gramas)</option>
+              <option value="l">l (litros)</option>
+              <option value="ml">ml (mililitros)</option>
+              <option value="pct">pct (pacote)</option>
+              <option value="cx">cx (caixa)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Status Selecionável -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Status do Estoque</label>
+          <select id="item-status" class="apple-input">
+            <option value="ok">● Ok (Estoque Suficiente)</option>
+            <option value="baixo">● Baixo (Perto de acabar)</option>
+            <option value="em_falta">● Em falta (Esgotado)</option>
+          </select>
+          <p class="text-[11px] text-neutral-400 mt-1">Nota: Se a quantidade for 0, o status será automaticamente classificado como "Em falta".</p>
+        </div>
+
+        <!-- Limite de Alerta Mínimo -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Alerta de Estoque Baixo (mínimo)</label>
+          <input type="number" step="any" min="0" id="item-threshold" value="1" class="apple-input text-sm">
+        </div>
+
+        <!-- Preço e Local de Compra (Opcional) -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Último Preço (R$)</label>
+            <input type="number" step="0.01" min="0" id="item-price" placeholder="Opcional" class="apple-input text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Local da Compra</label>
+            <input type="text" id="item-store" placeholder="Ex: Carrefour" class="apple-input text-sm">
+          </div>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div class="pt-3 border-t border-black/5 dark:border-white/5 flex gap-2">
+          <button type="button" id="btn-delete-item" class="apple-btn-secondary text-xs text-red-600 dark:text-red-400 hidden">
+            Excluir
+          </button>
+          <button type="button" data-close-modal="modal-item" class="apple-btn-secondary text-xs flex-1">
+            Cancelar
+          </button>
+          <button type="submit" class="apple-btn-primary text-xs flex-1">
+            Salvar Produto
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- MODAL 4: VERIFICAÇÃO EM 3 ETAPAS PARA ZERAR ESTOQUE -->
+  <div id="modal-clear-confirm" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 apple-sheet-backdrop">
+    <div class="apple-sheet-content w-full max-w-md rounded-3xl p-6 shadow-2xl">
+      
+      <!-- Indicador de Progresso das Etapas -->
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-xs font-semibold uppercase tracking-wider text-red-500 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          Ação Crítica
+        </span>
+        <span id="clear-step-counter" class="text-xs font-bold text-neutral-400">Etapa 1 de 3</span>
+      </div>
+
+      <!-- ETAPA 1: ALERTA INICIAL -->
+      <div id="clear-step-1" class="space-y-4">
+        <div class="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/40 text-red-600 flex items-center justify-center mx-auto">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <div class="text-center">
+          <h3 class="text-lg font-bold text-neutral-900 dark:text-white">Deseja apagar todo o estoque?</h3>
+          <p class="text-xs text-neutral-500 mt-1">
+            Esta ação removerá todos os produtos, quantidades e dados cadastrados no seu inventário local.
+          </p>
+        </div>
+        <div class="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-600 dark:text-neutral-300 text-center">
+          Total no inventário: <strong id="clear-total-count" class="text-neutral-900 dark:text-white">0 itens</strong>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button type="button" data-close-modal="modal-clear-confirm" class="apple-btn-secondary text-xs flex-1 py-2.5">
+            Cancelar
+          </button>
+          <button type="button" id="btn-clear-goto-step-2" class="apple-btn-primary text-xs flex-1 py-2.5">
+            Continuar (1/3) ➔
+          </button>
+        </div>
+      </div>
+
+      <!-- ETAPA 2: DIGITAÇÃO DE CONFIRMAÇÃO DE SEGURANÇA -->
+      <div id="clear-step-2" class="hidden space-y-4">
+        <div class="text-center">
+          <h3 class="text-lg font-bold text-neutral-900 dark:text-white">Confirmação de Segurança</h3>
+          <p class="text-xs text-neutral-500 mt-1">
+            Para garantir que não foi um clique acidental, digite a palavra <strong class="text-red-500">LIMPAR</strong> abaixo:
+          </p>
+        </div>
+        <div>
+          <input type="text" id="input-clear-confirm-text" placeholder="Digite LIMPAR" class="apple-input text-center text-base tracking-widest font-bold uppercase">
+          <p id="clear-text-error" class="hidden text-[11px] text-red-500 text-center mt-1">Digite exatamente a palavra LIMPAR para prosseguir.</p>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button type="button" id="btn-clear-back-to-step-1" class="apple-btn-secondary text-xs flex-1 py-2.5">
+            Voltar
+          </button>
+          <button type="button" id="btn-clear-goto-step-3" class="apple-btn-primary text-xs flex-1 py-2.5">
+            Confirmar (2/3) ➔
+          </button>
+        </div>
+      </div>
+
+      <!-- ETAPA 3: CONFIRMAÇÃO FINAL DESTRUTIVA -->
+      <div id="clear-step-3" class="hidden space-y-4">
+        <div class="w-14 h-14 rounded-full bg-red-500/10 text-red-600 flex items-center justify-center mx-auto">
+          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <div class="text-center">
+          <h3 class="text-lg font-bold text-red-600 dark:text-red-400">Última Chance!</h3>
+          <p class="text-xs text-neutral-500 mt-1">
+            Você está no último passo. Tem certeza absoluta de que deseja zerar todos os produtos agora? <strong>Esta ação não pode ser desfeita.</strong>
+          </p>
+        </div>
+        <div class="flex flex-col gap-2 pt-2">
+          <button type="button" id="btn-execute-clear-all" class="w-full py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg transition-transform active:scale-95">
+            🚨 Sim, Apagar Todo o Estoque Agora
+          </button>
+          <button type="button" data-close-modal="modal-clear-confirm" class="apple-btn-secondary text-xs w-full py-2">
+            Cancelar e Manter Meus Produtos
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 5: DETALHES DO PRODUTO & HISTÓRICO DE PREÇOS (ESTILO APPLE) -->
+  <div id="modal-item-detail" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 apple-sheet-backdrop">
+    <div class="apple-sheet-content w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-5 max-h-[90vh] overflow-y-auto">
+      
+      <div class="sm:hidden apple-sheet-grabber"></div>
+
+      <!-- Cabeçalho com Nome e Fechar -->
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span id="detail-category-badge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium badge-category"></span>
+            <span id="detail-status-badge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
+          </div>
+          <h3 id="detail-item-name" class="text-xl font-bold text-neutral-900 dark:text-white leading-snug"></h3>
+          <p id="detail-item-stock" class="text-xs text-neutral-500 mt-0.5"></p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="btn-detail-edit-pencil" title="Editar Produto" class="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-blue-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+          </button>
+          <button data-close-modal="modal-item-detail" class="p-2 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-white">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Card de Insights: Melhor Preço e Tendência -->
+      <div id="detail-price-insight-card" class="mb-5 p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-800/90 border border-blue-100 dark:border-white/10">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1">
+            <span>🏆</span> Melhor Preço Registrado
+          </span>
+          <span id="detail-price-trend-badge" class="text-xs font-bold px-2 py-0.5 rounded-full"></span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="detail-best-price" class="text-2xl font-black text-neutral-900 dark:text-white">R$ --</span>
+          <span id="detail-best-unit" class="text-xs font-medium text-neutral-500"></span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+          <span>📍</span>
+          <span>Mais barato em: <strong id="detail-best-store" class="text-neutral-900 dark:text-white">--</strong></span>
+        </div>
+      </div>
+
+      <!-- Lista / Linha do Tempo de Preços -->
+      <div class="mb-5">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Histórico de Preços e Compras</h4>
+          <span id="detail-records-count" class="text-xs text-neutral-400">0 compras</span>
+        </div>
+        <div id="detail-price-history-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <!-- Renderizado via JS -->
+        </div>
+      </div>
+
+      <!-- Formulário: Registrar Novo Preço / Compra -->
+      <div class="pt-4 border-t border-black/5 dark:border-white/5">
+        <button id="btn-toggle-add-price" type="button" class="w-full text-xs font-semibold text-blue-600 dark:text-blue-400 py-2 flex items-center justify-center gap-1 hover:underline">
+          <span>+ Registrar Novo Preço Manualmente</span>
+        </button>
+        <form id="form-add-price" class="hidden mt-3 space-y-3 bg-neutral-50 dark:bg-neutral-800/40 p-3.5 rounded-2xl border border-black/5 dark:border-white/5">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1">Preço Pago (R$)</label>
+              <input type="number" step="0.01" min="0.01" id="input-new-price" required placeholder="Ex: 21.90" class="apple-input text-sm font-bold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1">Data da Compra</label>
+              <input type="date" id="input-new-price-date" required class="apple-input text-xs">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1">Local / Supermercado</label>
+            <input type="text" id="input-new-price-store" required placeholder="Ex: Carrefour, Pão de Açúcar" class="apple-input text-sm">
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <button type="button" id="btn-cancel-add-price" class="apple-btn-secondary text-xs py-1.5 px-3">Cancelar</button>
+            <button type="submit" class="apple-btn-primary text-xs py-1.5 px-4">Salvar Preço</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Script Principal -->
+  <script type="module" src="./js/app.js?v=5"></script>
+
+</body>
+</html>
