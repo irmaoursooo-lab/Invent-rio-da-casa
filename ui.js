@@ -1,5 +1,5 @@
 // js/ui.js - Renderização de Componentes e Interações no Estilo Apple
-import { db } from './db.js?v=5';
+import { db } from './db.js';
 
 // Utilitário para formatar moeda em Real Brasileiro (BRL)
 export function formatBRL(value) {

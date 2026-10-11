@@ -1,7 +1,7 @@
 // js/app.js - Controlador Principal da Aplicação Apple Home Inventory
-import { db } from './db.js?v=5';
-import { fileToBase64, analyzeProductPhoto, analyzeReceiptPhoto } from './gemini.js?v=5';
-import { renderInventoryGrid, renderShoppingList, renderReceiptReviewSheet, populateItemDetailModal, showAppleToast } from './ui.js?v=5';
+import { db } from './db.js';
+import { fileToBase64, analyzeProductPhoto, analyzeReceiptPhoto } from './gemini.js';
+import { renderInventoryGrid, renderShoppingList, renderReceiptReviewSheet, populateItemDetailModal, showAppleToast } from './ui.js';
 
 // Estado da Aplicação
 const state = {
